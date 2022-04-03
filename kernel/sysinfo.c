@@ -1,7 +1,3 @@
-//
-// Created by ubuntu on 2020/9/15.
-//
-
 #include "types.h"
 #include "riscv.h"
 #include "defs.h"
