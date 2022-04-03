@@ -1,7 +1,3 @@
-//
-// Created by kyle on 2020/9/14.
-//
-
 #include "kernel/types.h"
 #include "kernel/stat.h"
 #include "user/user.h"
