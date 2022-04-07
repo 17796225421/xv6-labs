@@ -1,52 +1,69 @@
 #include "kernel/types.h"
 #include "kernel/stat.h"
 #include "user/user.h"
+/*
+每个进程通过上一个管道从上一个进程拿一堆数字，只打印第一个数字，
+把剩下的数字，如果不是第一个数字的倍数，就通过当前管道传给下一个进程。
+*/
 
-#define MAX_PRIMES 35
+void sieve(int prePipe[2])
+{
+	int firstNum;
+	read(prePipe[0], &firstNum, sizeof(firstNum));
+	if (firstNum == -1)
+	{
+		exit(0);
+	}
+	printf("prime %d\n", firstNum);
 
-int process(int in, int out) {
-    int pid, prime, number;
-    pid = fork();
-    if (pid == 0) {
-        // Child process does not need to write to the pipe
-        close(out);
-        read(in, &prime, sizeof(prime));
-        printf("prime %d\n", prime);
-        int fds[2];
-        while (read(in, &number, sizeof(int)) > 0) {
-            if (number % prime != 0) {
-                if (pid == 0) {
-                    if (number >= MAX_PRIMES)
-                        break;
-                    pipe(fds);
-                    pid = process(fds[0], fds[1]);
-                }
-                write(fds[1], &number, sizeof(int));
-                if (number >= MAX_PRIMES)
-                    break;
-            }
-        }
-        // No need to write anymore
-        close(fds[1]);
-        if (pid > 0)
-            wait(0);
-    } else {
-        // Parent process does not need to read from the pipe
-        close(in);
-    }
-    return pid;
+	int curPipe[2];
+	pipe(curPipe);
+
+	if (fork() == 0)
+	{
+		close(curPipe[1]);
+		close(prePipe[0]);
+		sieve(curPipe);
+	}
+	else
+	{
+		close(curPipe[0]);
+		int buf;
+		while (read(prePipe[0], &buf, sizeof(buf)) && buf != -1)
+		{
+			if (buf % firstNum != 0)
+			{
+				write(curPipe[1], &buf, sizeof(buf));
+			}
+		}
+		buf = -1;
+		write(curPipe[1], &buf, sizeof(buf));
+		wait(0);
+		exit(0);
+	}
 }
 
-int main(int argc, char *argv[]) {
-    int fds[2];
-    pipe(fds);
-    if (process(fds[0], fds[1]) > 0) {
-        for (int i = 2; i <= MAX_PRIMES; i++) {
-            write(fds[1], &i, sizeof(int));
-        }
-        // No need to write anymore
-        close(fds[1]);
-        wait(0);
-    }
-    exit(0);
+int main(int argc, char **argv)
+{
+	int curPipe[2];
+	pipe(curPipe);
+
+	if (fork() == 0)
+	{
+		close(curPipe[1]);
+		sieve(curPipe);
+		exit(0);
+	}
+	else
+	{
+		close(curPipe[0]);
+		for (int i = 2; i <= 35; i++)
+		{
+			write(curPipe[1], &i, sizeof(i));
+		}
+		int end = -1;
+		write(curPipe[1], &end, sizeof(end)); // 末尾输入 -1，用于标识输入完成
+	}
+	wait(0);
+	exit(0);
 }
