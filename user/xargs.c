@@ -1,42 +1,43 @@
 #include "kernel/types.h"
+#include "kernel/param.h"
 #include "user/user.h"
 
+#define STDIN_FILENO 0
 #define MAXLINE 1024
 
 int main(int argc, char *argv[])
 {
-    char extraParams[MAXLINE];
-    char *newParams[32];
-    int n, newParamsIdx = 0;
+    // for(int i=0;i<argc;i++)printf("%s\n",argv[i]);
+    char line[MAXLINE];
+    char* params[MAXARG];
+    int n, args_index = 0;
+    int i;
 
-    char *newCmd = argv[1];
-    for (int i = 1; i < argc; i++)
-        newParams[newParamsIdx++] = argv[i];
+    char* cmd = argv[1];
+    for (i = 1; i < argc; i++) params[args_index++] = argv[i];
 
-    while ((n = read(0, extraParams, MAXLINE)) > 0)
+    while ((n = read(STDIN_FILENO, line, MAXLINE)) > 0)
     {
-        if (fork() == 0)
+        if (fork() == 0) // child process
         {
-            char *arg = (char *)malloc(sizeof(extraParams));
+            char *arg = (char*) malloc(sizeof(line));
             int index = 0;
-            for (int i = 0; i < n; i++)
+            for (i = 0; i < n; i++)
             {
-                if (extraParams[i] == ' ' || extraParams[i] == '\n')
+                if (line[i] == ' ' || line[i] == '\n')
                 {
-                    arg[index] = '\0';
-                    newParams[newParamsIdx++] = arg;
+                    arg[index] = 0;
+                    params[args_index++] = arg;
                     index = 0;
-                    arg = (char *)malloc(sizeof(extraParams));
+                    arg = (char*) malloc(sizeof(line));
                 }
-                else
-                    arg[index++] = extraParams[i];
+                else arg[index++] = line[i];
             }
             arg[index] = 0;
-            newParams[newParamsIdx] = 0;
-            exec(newCmd, newParams);
+            params[args_index] = 0;
+            exec(cmd, params);
         }
-        else
-            wait(0);
+        else wait((int*)0);
     }
     exit(0);
 }
