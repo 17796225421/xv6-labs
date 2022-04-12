@@ -304,36 +304,31 @@ sys_open(void)
       return -1;
     }
   } else {
-    if((ip = namei(path)) == 0){
-      end_op();
-      return -1;
-    }
-    ilock(ip);
-
-    if (!(omode & O_NOFOLLOW)) {
-      int depth = 10;
-      for (; ip->type == T_SYMLINK && depth; depth--) {
-        if((ip->size > MAXPATH) || (readi(ip, 0, (uint64)path, 0, ip->size) != ip->size)){
+    int symlink_depth = 0;
+    while(1) { // recursively follow symlinks
+      if((ip = namei(path)) == 0){
+        end_op();
+        return -1;
+      }
+      ilock(ip);
+      if(ip->type == T_SYMLINK && (omode & O_NOFOLLOW) == 0) {
+        if(++symlink_depth > 10) {
+          // too many layer of symlinks, might be a loop
+          iunlockput(ip);
+          end_op();
+          return -1;
+        }
+        if(readi(ip, 0, (uint64)path, 0, MAXPATH) < 0) {
           iunlockput(ip);
           end_op();
           return -1;
         }
         iunlockput(ip);
-
-        if((ip = namei(path)) == 0){
-          end_op();
-          return -1;
-        }
-        ilock(ip);
-      }
-      if(depth == 0) {
-        iunlockput(ip);
-        end_op();
-        return -1;
+      } else {
+        break;
       }
     }
-
-    if (ip->type == T_DIR && omode != O_RDONLY){
+    if(ip->type == T_DIR && omode != O_RDONLY){
       iunlockput(ip);
       end_op();
       return -1;
@@ -365,7 +360,7 @@ sys_open(void)
   f->readable = !(omode & O_WRONLY);
   f->writable = (omode & O_WRONLY) || (omode & O_RDWR);
 
-  if((omode & O_TRUNC) && (ip->type == T_FILE || ip->type == T_SYMLINK)){
+  if((omode & O_TRUNC) && ip->type == T_FILE){
     itrunc(ip);
   }
 
@@ -510,21 +505,29 @@ sys_pipe(void)
 }
 
 uint64
-sys_symlink(void){
-  char target[MAXPATH], path[MAXPATH];
+sys_symlink(void)
+{
   struct inode *ip;
-
+  char target[MAXPATH], path[MAXPATH];
   if(argstr(0, target, MAXPATH) < 0 || argstr(1, path, MAXPATH) < 0)
     return -1;
 
   begin_op();
-  if((ip = create(path, T_SYMLINK, 0, 0)) == 0){
+
+  ip = create(path, T_SYMLINK, 0, 0);
+  if(ip == 0){
     end_op();
     return -1;
   }
-  if(writei(ip, 0, (uint64)target, 0, strlen(target) + 1) <= 0)
-    panic("sys_symlink: writei");
+
+  // use the first data block to store target path.
+  if(writei(ip, 0, (uint64)target, 0, strlen(target)) < 0) {
+    end_op();
+    return -1;
+  }
+
   iunlockput(ip);
+
   end_op();
   return 0;
 }
