@@ -1,43 +1,48 @@
 #include "kernel/types.h"
-#include "kernel/param.h"
+#include "kernel/stat.h"
 #include "user/user.h"
+#include "kernel/fs.h"
 
-#define STDIN_FILENO 0
-#define MAXLINE 1024
+void run(char *program, char **args) {
+	// for(int i=0;i<argc; i++) {
+	// 	printf("i: %s\n", args[i]);
+	// }
+	if(fork() == 0) { // child exec
+		exec(program, args);
+		exit(0);
+	}
+	return; // parent return
+}
 
-int main(int argc, char *argv[])
-{
-    // for(int i=0;i<argc;i++)printf("%s\n",argv[i]);
-    char line[MAXLINE];
-    char* params[MAXARG];
-    int n, args_index = 0;
-    int i;
-
-    char* cmd = argv[1];
-    for (i = 1; i < argc; i++) params[args_index++] = argv[i];
-
-    while ((n = read(STDIN_FILENO, line, MAXLINE)) > 0)
-    {
-        if (fork() == 0) // child process
-        {
-            char *arg = (char*) malloc(sizeof(line));
-            int index = 0;
-            for (i = 0; i < n; i++)
-            {
-                if (line[i] == ' ' || line[i] == '\n')
-                {
-                    arg[index] = 0;
-                    params[args_index++] = arg;
-                    index = 0;
-                    arg = (char*) malloc(sizeof(line));
-                }
-                else arg[index++] = line[i];
-            }
-            arg[index] = 0;
-            params[args_index] = 0;
-            exec(cmd, params);
-        }
-        else wait((int*)0);
-    }
-    exit(0);
+int main(int argc, char *argv[]){
+	char buf[2048]; char *p = buf, *last_p = buf;
+	char *argsbuf[128]; char **args = argsbuf;
+	for(int i=1;i<argc;i++) {
+		*args = argv[i];
+		args++;
+	}
+	char **pa = args;
+	while(read(0, p, 1) != 0) {
+		if(*p == ' ') {
+			*p = '\0';
+			*(pa++) = last_p; // save argument
+			last_p = p+1;
+		} else if (*p == '\n') {
+			*p = '\0';
+			*(pa++) = last_p;
+			last_p = p+1;
+			*pa = 0; // null-terminated list
+			run(argv[1], argsbuf);
+			pa = args; // reset
+		}
+		p++;
+	}
+	if(pa != args) { // has one line left
+		*p = '\0';
+		*(pa++) = last_p;
+		*pa = 0; // null-terminated list
+		run(argv[1], argsbuf);
+	}
+	while(wait(0) != -1) {};
+	exit(0);
 }
