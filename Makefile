@@ -35,8 +35,7 @@ OBJS = \
   $K/sysfile.o \
   $K/kernelvec.o \
   $K/plic.o \
-  $K/virtio_disk.o \
-  $K/mmap.o
+  $K/virtio_disk.o
 
 ifeq ($(LAB),pgtbl)
 OBJS += \
