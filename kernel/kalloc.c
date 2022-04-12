@@ -82,16 +82,15 @@ kalloc(void)
 }
 
 uint64
-kfree_count(void)
+count_free_mem(void) // added for counting free memory in bytes (lab2)
 {
-    struct run *r;
-    uint64 size = 0;
-    acquire(&kmem.lock);
-    r = kmem.freelist;
-    while (r) {
-        size += PGSIZE;
-        r = r->next;
-    }
-    release(&kmem.lock);
-    return size;
+  acquire(&kmem.lock);
+  uint64 mem_bytes = 0;
+  struct run *r = kmem.freelist;
+  while(r){
+    mem_bytes += PGSIZE;
+    r = r->next;
+  }
+  release(&kmem.lock);
+  return mem_bytes;
 }

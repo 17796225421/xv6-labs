@@ -127,6 +127,8 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
+  p->syscall_trace = 0;
+
   return p;
 }
 
@@ -150,19 +152,6 @@ freeproc(struct proc *p)
   p->killed = 0;
   p->xstate = 0;
   p->state = UNUSED;
-}
-
-int
-proc_count(void) {
-    uint64 num = 0;
-    struct proc *p;
-    for(p = proc; p < &proc[NPROC]; p++) {
-        acquire(&p->lock);
-        if(p->state != UNUSED)
-            num++;
-        release(&p->lock);
-    }
-    return num;
 }
 
 // Create a user page table for a given process,
@@ -293,9 +282,6 @@ fork(void)
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
 
-  // copy trace mask
-  np->mask = p->mask;
-
   // Cause fork to return 0 in the child.
   np->trapframe->a0 = 0;
 
@@ -306,6 +292,8 @@ fork(void)
   np->cwd = idup(p->cwd);
 
   safestrcpy(np->name, p->name, sizeof(p->name));
+
+  np->syscall_trace = p->syscall_trace;
 
   pid = np->pid;
 
@@ -708,4 +696,17 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+
+uint64
+count_process(void) { // added function for counting used process slots (lab2)
+  uint64 cnt = 0;
+  for(struct proc *p = proc; p < &proc[NPROC]; p++) {
+    // acquire(&p->lock);
+    // no need to lock since all we do is reading, no writing will be done to the proc.
+    if(p->state != UNUSED) {
+      cnt++;
+    }
+  }
+  return cnt;
 }
