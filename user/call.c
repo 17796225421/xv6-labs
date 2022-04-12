@@ -3,15 +3,15 @@
 #include "kernel/stat.h"
 #include "user/user.h"
 
-void swap(int *a, int *b)
-{
-  int *tmp = a;
-  a = b;
-  b = tmp;
+int g(int x) {
+  return x+3;
 }
 
-void main()
-{
-  int a = 1, b = 2;
-  swap(&a, &b);
+int f(int x) {
+  return g(x);
+}
+
+void main(void) {
+  printf("%d %d\n", f(8)+1, 13);
+  exit(0);
 }

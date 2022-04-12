@@ -78,15 +78,17 @@ usertrap(void)
 
   // give up the CPU if this is a timer interrupt.
   if(which_dev == 2) {
-    acquire(&p->lock);
-    if(p->ticks > 0 && ++p->heartbeat % p->ticks == 0) {
-      p->heartbeat = 0;
-      if (p->alarm_trapframe.kernel_satp == 0) {
-        memmove(&p->alarm_trapframe, p->trapframe, sizeof(struct trapframe));
-        p->trapframe->epc = p->handler;
+    if(p->alarm_interval != 0) {
+      if(--p->alarm_ticks <= 0) {
+        if(!p->alarm_goingoff) { // make sure alarm_handler isn't already running
+          p->alarm_ticks = p->alarm_interval;
+          // jump to execute alarm_handler
+          *p->alarm_trapframe = *p->trapframe; // backup trapframe
+          p->trapframe->epc = (uint64)p->alarm_handler;
+          p->alarm_goingoff = 1;
+        }
       }
     }
-    release(&p->lock);
     yield();
   }
 
@@ -228,3 +230,18 @@ devintr()
   }
 }
 
+int sigalarm(int ticks, void(*handler)()) {
+  struct proc *p = myproc();
+  p->alarm_interval = ticks;
+  p->alarm_handler = handler;
+  p->alarm_ticks = ticks;
+  return 0;
+}
+
+int sigreturn() {
+  // resume the state of trapframe to how it is before the alarm goes off.
+  struct proc *p = myproc();
+  *p->trapframe = *p->alarm_trapframe;
+  p->alarm_goingoff = 0;
+  return 0;
+}
