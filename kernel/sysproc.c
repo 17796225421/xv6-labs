@@ -112,6 +112,10 @@ sys_trace(void)
 uint64
 sys_sysinfo(void)
 {
+1. 物理内存管理器的获取空闲物理内存大小
+2. 进程管理器的获取进程状态不是未使用的进程数量
+3. 虚拟内存管理器的进程内核态页表拷贝到用户态地址
+
   uint64 addr;
 
   if(argaddr(0, &addr) < 0)
