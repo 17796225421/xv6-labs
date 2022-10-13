@@ -397,6 +397,12 @@ err:
 // Only copies the page table and not the physical memory.
 // returns 0 on success, -1 on failure.
 int kvmcopymappings(pagetable_t src, pagetable_t dst, uint64 start, uint64 sz) {
+  // 1. 遍历原页表虚拟地址空间的每个虚拟页的虚拟地址
+  // 2.
+  // 利用虚拟地址管理器的虚拟页的虚拟地址找到物理页的物理地址，找到原页表的虚拟页虚拟地址对应的物理页的物理地址
+  // 3.
+  // 使用虚拟地址管理器的虚拟页虚拟地址映射到物理页物理地址，将目标页表的相同的虚拟页的虚拟地址映射到原页表的的物理页的物理地址。
+
   pte_t *pte;
   uint64 pa, i;
   uint flags;
@@ -436,6 +442,11 @@ void uvmclear(pagetable_t pagetable, uint64 va) {
 // Copy len bytes from src to virtual address dstva in a given page table.
 // Return 0 on success, -1 on error.
 int copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len) {
+// 1. 对用户地址空间的虚拟地址，利用进程用户页表，使用虚拟内存管理器的虚拟页虚拟地址找到物理页物理地址，获得用户地址空间的物理页的物理地址
+// 2. 使用memmove或者strcpy将内核地址空间的数据拷贝到物理页的物理地址。
+// 3. 如果内核页表同步用户页表，也就是内核页表既有映射内核地址空间，又映射用户地址空间，则不需要使用虚拟内存管理器的虚拟页虚拟地址找到物理页物理地址，寻找用户地址的物理页物理地址的时候可以mmu自动使用使用内核页表。
+// 4. 内核页表同步用户页表，也就是从内核页表对应的内核地址空间中，找到一段无用的内核地址空间，作为用户地址空间，用户页表的任何变化都应该同步到内核页表的用户地址空间中。我们选择内核地址空间的0到PLIC不包含PLIC，作为用户地址空间，这段内核地址空间仅有CLINT的虚拟页映射到物理页，而且这个映射只在内核启动起作用，也就是全局内核页表的CLIINT的虚拟页映射到物理页才有用，进程的内核页表并不需要映射CLINT。然后exec检查程序内存不能超过PLIC。然后将每个修改到进程用户页表的，将修改同步到进程内核页表，比如fork将当前进程的地址空间拷贝到子进程的地址空间时，会修改子进程的用户地址空间，需要将修改同步到子进程的内核页表，使用虚拟页表管理器的拷贝页表。比如exec在构建好新进程的用户页表后，需要使用虚拟内存管理器的拷贝课表，同步到新进程的内核页表。比如进程管理器的增加用户地址空间，修改完用户页表后，需要使用虚拟内存管理器的拷贝页表将修改同步到内核页表。
+
   uint64 n, va0, pa0;
 
   while (len > 0) {
@@ -460,6 +471,12 @@ int copyinstr_new(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max);
 // Copy len bytes to dst from virtual address srcva in a given page table.
 // Return 0 on success, -1 on error.
 int copyin(pagetable_t pagetable, char *dst, uint64 srcva, uint64 len) {
+  // 1.
+  // 对用户地址空间的虚拟地址，利用进程用户页表，使用虚拟内存管理器的虚拟页虚拟地址找到物理页物理地址，获得用户地址空间的物理页的物理地址
+  // 2. 使用memmove或者strcpy将内核地址空间的数据拷贝到物理页的物理地址。
+  // 3.
+  // 如果内核页表同步用户页表，也就是内核页表既有映射内核地址空间，又映射用户地址空间，则不需要使用虚拟内存管理器的虚拟页虚拟地址找到物理页物理地址，寻找用户地址的物理页物理地址的时候可以mmu自动使用使用内核页表。
+
   // printf("trace: copyin1 %p\n", *walk(pagetable, srcva, 0));
   // printf("trace: copyin2 %p\n", *walk(myproc()->kernelpgtbl, srcva, 0));
   // printf("trace: copyin3 %p\n", *(uint64*)srcva);
